@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMDb Movie Rating Scraper & Analytics Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <div class="nav-brand">
+            <div class="logo-box">IMDb</div>
+            <div class="brand-title">
+                <h1>Movie Rating Scraper</h1>
+                <span class="badge">Live Web & CSV Tracker</span>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <button id="scrapeBtn" class="btn btn-primary">
+                <i class="fa-solid fa-spider"></i> Run Scraper
+            </button>
+
+            <button id="uploadModalBtn" class="btn btn-secondary">
+                <i class="fa-solid fa-file-upload"></i> Import CSV
+            </button>
+
+            <a href="/api/download-csv" id="downloadBtn" class="btn btn-outline" download>
+                <i class="fa-solid fa-file-csv"></i> Download CSV
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="container">
+        <!-- Analytics Metric Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon yellow"><i class="fa-solid fa-film"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Total Movies</span>
+                    <h3 id="statTotalMovies">0</h3>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon gold"><i class="fa-solid fa-star"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Top Rated Movie</span>
+                    <h3 id="statTopMovie">Loading...</h3>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="fa-solid fa-chart-line"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Average IMDb Rating</span>
+                    <h3 id="statAvgRating">0.0</h3>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple"><i class="fa-solid fa-calendar-days"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Top Era / Decade</span>
+                    <h3 id="statTopDecade">1990s</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chart Section -->
+        <section class="chart-section card">
+            <div class="chart-header">
+                <h2><i class="fa-solid fa-chart-bar"></i> Movie Distribution by Decade</h2>
+                <span class="subtitle">IMDb Top Rankings Breakdown</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="decadeChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Toolbar: Search & Filters -->
+        <section class="toolbar card">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Search by movie title or year...">
+            </div>
+            
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label for="ratingFilter"><i class="fa-solid fa-star"></i> Rating:</label>
+                    <select id="ratingFilter">
+                        <option value="0">All Ratings</option>
+                        <option value="9.0">9.0+ Ratings</option>
+                        <option value="8.8">8.8+ Ratings</option>
+                        <option value="8.6">8.6+ Ratings</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <label for="sortBy"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort By:</label>
+                    <select id="sortBy">
+                        <option value="rank-asc">Rank (1 -> 250)</option>
+                        <option value="rating-desc">Rating (High -> Low)</option>
+                        <option value="year-desc">Year (Newest -> Oldest)</option>
+                        <option value="title-asc">Title (A -> Z)</option>
+                    </select>
+                </div>
+
+                <!-- View Switchers -->
+                <div class="view-toggle">
+                    <button id="gridViewBtn" class="toggle-btn active" title="Grid Card View">
+                        <i class="fa-solid fa-grip"></i>
+                    </button>
+                    <button id="tableViewBtn" class="toggle-btn" title="Table View">
+                        <i class="fa-solid fa-table-list"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Movies Display Section -->
+        <section id="moviesDisplay">
+            <!-- Grid View Container -->
+            <div id="moviesGrid" class="movies-grid"></div>
+
+            <!-- Table View Container -->
+            <div id="moviesTableWrapper" class="table-wrapper hidden">
+                <table class="movies-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Poster</th>
+                            <th>Movie Title</th>
+                            <th>Release Year</th>
+                            <th>IMDb Rating</th>
+                            <th>Votes</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="moviesTableBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Empty State -->
+            <div id="noResults" class="empty-state hidden">
+                <i class="fa-solid fa-ghost"></i>
+                <h3>No movies found</h3>
+                <p>Try adjusting your search criteria or click "Run Scraper" to fetch movies.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- CSV Upload Modal -->
+    <div id="uploadModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-csv"></i> Import Custom Movie CSV</h3>
+                <button id="closeModalBtn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadForm">
+                    <div class="drop-zone" id="dropZone">
+                        <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
+                        <p>Drag & drop your <strong>.csv</strong> file here, or click to browse</p>
+                        <span class="file-name" id="fileNameDisplay">No file selected</span>
+                        <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+                    </div>
+                    <button type="submit" class="btn btn-primary full-width mt-3">
+                        <i class="fa-solid fa-upload"></i> Upload & Render CSV
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner-box">
+            <div class="spinner"></div>
+            <h3>Scraping IMDb Data...</h3>
+            <p>Automating browser & extracting Top Movies...</p>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
